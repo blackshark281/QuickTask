@@ -8,6 +8,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 const taskRoutes = require('./routes/tasks');
 const userRoutes = require('./routes/userRoutes');
+const collaboratorRoutes = require("./routes/collaborators");
+
 
 app.use(cors());
 
@@ -21,6 +23,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/tasks", collaboratorRoutes);
 
 app.get('/api/health', (req, res) =>{
     res.json({status:"ok"});

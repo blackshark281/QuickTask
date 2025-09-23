@@ -50,7 +50,7 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
-      // "helloEveryone@thiscannotbehacked#1#2#3", // use process.env.JWT_SECRET in real apps
+      // "helloEveryone@thiscannotbehacked#1#2#3", 
       { expiresIn: "1h" }
     );
 
