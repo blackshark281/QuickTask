@@ -445,6 +445,20 @@ const Dashboard = () => {
 const [todayTasks, setTodayTasks] = useState([]);
 
   const token = localStorage.getItem("token");
+  // console.log('token', localStorage.getItem('token'));
+
+
+  // 🔹 Decode token payload to get userId
+  let loggedInUserId = null;
+  if (token) {
+    try {
+      const decoded = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      loggedInUserId = decoded.userId; 
+    } catch (err) {
+      console.error("Token decode failed:", err);
+    }
+  }
+
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch("http://localhost:3000/api/tasks", {
@@ -657,6 +671,60 @@ const [todayTasks, setTodayTasks] = useState([]);
     }
   };
 
+  // 🔹 Update collaborator role
+const handleUpdateCollaboratorRole = async (taskId, userId, newRole) => {
+  try {
+    const res = await fetch(
+      `http://localhost:3000/api/tasks/${taskId}/collaborators/${userId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: newRole }),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.msg || "Error updating role");
+    }
+
+    toast.success("Collaborator role updated!");
+    fetchTasks(); // refresh tasks
+  } catch (err) {
+    console.error("Update collaborator failed:", err);
+    toast.error(err.message);
+  }
+};
+
+// 🔹 Delete collaborator
+const handleDeleteCollaborator = async (taskId, userId) => {
+  try {
+    const res = await fetch(
+      `http://localhost:3000/api/tasks/${taskId}/collaborators/${userId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.msg || "Error deleting collaborator");
+    }
+
+    toast.success("Collaborator removed!");
+    fetchTasks(); // refresh tasks
+  } catch (err) {
+    console.error("Delete collaborator failed:", err);
+    toast.error(err.message);
+  }
+};
+
 
   const buttonStyle = {
     padding: "8px 14px",
@@ -676,6 +744,7 @@ const [todayTasks, setTodayTasks] = useState([]);
     duplicate: { ...buttonStyle, background: "linear-gradient(135deg, #81c784, #388e3c)" },
     collaborator: { ...buttonStyle, background: "linear-gradient(135deg, #ab47bc, #6a1b9a)" }, // 🔹 NEW
   };
+
 
   return (
     <div
@@ -788,7 +857,7 @@ const [todayTasks, setTodayTasks] = useState([]);
                 style={{
                   borderRadius: "12px",
                   padding: "15px",
-                  width: "350px",
+                  width: "420px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
@@ -818,10 +887,61 @@ const [todayTasks, setTodayTasks] = useState([]);
                     <p style={{ marginTop: "8px", color: "inherit" }}>{task.description}</p>
                   )}
                   {task.collaborators?.length > 0 && (
-                    <p style={{ fontSize: "0.85rem" }}>
-                      👥 {task.collaborators.map((c) => `(${c.role})`).join(", ")}
-                    {/* 👥 {task.collaborators.map((c) => `${c.email} (${c.role})`).join(", ")} */}
-                  </p>
+                  //   <p style={{ fontSize: "0.85rem" }}>
+                  //     👥 {task.collaborators.map((c) => `(${c.role})`).join(", ")}
+                  //   {/* 👥 {task.collaborators.map((c) => `${c.email} (${c.role})`).join(", ")} */}
+                  // </p>
+                  <div style={{ marginTop: "1rem" }}>
+                    <h4>Collaborators</h4>
+                    <ul>
+                      {task.collaborators.map((c) => (
+                        <li key={c.userId?._id} style={{ marginBottom: "0.5rem" }}>
+                          <strong>{c.userId?.email || "Unknown"}</strong>
+                        
+                        {/* 🔹 Only owner can edit/delete collaborators */}
+                        {String(task.userId?._id || task.userId) === String(loggedInUserId) && (
+                          <>
+                          {/* Role Dropdown */}
+                          <select
+                            value={c.role}
+                            onChange={async (e) => {
+                              try {
+                                await handleUpdateCollaboratorRole(task._id, c.userId._id, e.target.value);
+                                alert("Role updated!");
+                                // fetchTaskDetails(); // refresh task details
+                              } catch (err) {
+                                alert("Failed to update role");
+                              }
+                            }}
+                            style={{ marginLeft: "0.5rem" }}
+                          >
+                            <option value="viewer">Viewer</option>
+                            <option value="editor">Editor</option>
+                          </select>
+
+                          {/* Delete Button */}
+                          <button
+                            style={{ marginLeft: "0.5rem", color: "red" }}
+                            onClick={async () => {
+                              if (window.confirm("Remove this collaborator?")) {
+                                try {
+                                  await handleDeleteCollaborator(task._id, c.userId._id);
+                                  alert("Collaborator removed!");
+                                  // fetchTaskDetails();
+                                } catch (err) {
+                                  alert("Failed to remove collaborator");
+                                }
+                              }
+                            }}
+                          >
+                            ❌ Remove
+                          </button>
+                          </>
+                        )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                   )}
                 </div>
 
@@ -842,6 +962,7 @@ const [todayTasks, setTodayTasks] = useState([]);
                   <button style={styles.duplicate} onClick={() => duplicateTask(task)}>
                     Duplicate
                   </button>
+                  {String(task.userId?._id || task.userId) === String(loggedInUserId) && (
                   <button
                     style={styles.collaborator}
                     onClick={() => {
@@ -851,6 +972,7 @@ const [todayTasks, setTodayTasks] = useState([]);
                   >
                     Add Collaborator
                   </button>
+                  )}
                 </div>
               </div>
             ))
